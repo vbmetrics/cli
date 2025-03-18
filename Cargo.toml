@@ -6,3 +6,5 @@ edition = "2024"
 [dependencies]
 parser = { path = "../parser" }
 clap = { version = "4", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
+sqlx = { version = "0.8", features = ["postgres", "runtime-tokio", "macros"] }

@@ -1,35 +1,76 @@
+use std::path::Path;
+use std::fs::OpenOptions;
 use std::io::{self, Write};
+use sqlx::Error;
+use sqlx::postgres::PgPool;
 use parser::parser::parse_line;
 
-pub fn start_new_match() {
+pub async fn start_new_match(pool: &PgPool) {
     println!("=== Rozpoczynamy nowy mecz ===");
 
-    let home_team: String = choose_team("Wybierz gospodarzy (L): ");
-    let away_team: String = choose_team("Wybierz gości (O): ");
+    let home_team = match choose_team_from_db(pool, "Wybierz gospodarzy (L): ").await {
+        Some(team) => team,
+        None => {
+            println!("Nie można znaleźć drużyny. Kończenie meczu...");
+            return;
+        }
+    };
 
-    println!("Mecz rozpoczęty! {} vs {}", home_team, away_team);    // TODO: use translations, check teams, save teams info
+    let away_team = match choose_team_from_db(pool, "Wybierz gości (O): ").await {
+        Some(team) => team,
+        None => {
+            println!("Nie można znaleźć drużyny. Kończenie meczu...");
+            return;
+        }
+    };
 
-    match_loop();
+    println!("Mecz rozpoczęty! {} vs {}", home_team, away_team);
+
+    match_loop(&home_team, &away_team);
 }
 
-fn choose_team(prompt: &str) -> String {
+pub async fn choose_team_from_db(pool: &PgPool, prompt: &str) -> Option<String> {
     loop {
         print!("{}", prompt);
         io::stdout().flush().unwrap();
 
         let mut input = String::new();
         io::stdin().read_line(&mut input).unwrap();
-        let team = input.trim().to_uppercase();
+        let team_id: i32 = match input.trim().parse() {
+            Ok(num) => num,
+            Err(_) => {
+                println!("Nieprawidłowy wybór, spróbuj ponownie.");
+                continue;
+            }
+        };
 
-        if !team.is_empty() {
-            return team;
+        let team = sqlx::query!(
+            "SELECT name FROM teams WHERE id = $1",
+            team_id
+        )
+        .fetch_optional(pool)
+        .await
+        .unwrap_or_else(|_| {
+            println!("Błąd pobierania danych z bazy.");
+            None
+        });
+
+        match team {
+            Some(t) => return Some(t.name),
+            None => println!("Nie znaleziono drużyny o podanym ID. Spróbuj ponownie."),
         }
-        println!("Nieprawidłowy wybór, spróbuj ponownie.");
     }
 }
 
-fn match_loop() {
+
+pub fn match_loop(home_team: &str, away_team: &str) {
     println!("Wpisz akcje lub 'exit' aby zakończyć mecz.");
+
+    let mut file: std::fs::File = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("match_actions.log")
+        .unwrap();
 
     loop {
         print!("> ");
@@ -37,15 +78,18 @@ fn match_loop() {
 
         let mut input: String = String::new();
         io::stdin().read_line(&mut input).unwrap();
-        let input = input.trim();
+        let input: &str = input.trim();
 
         if input.eq_ignore_ascii_case("exit") {
-            println!("Zamykanie...");
+            println!("Zamykanie meczu...");
             break;
         }
-        
-        let parsed: parser::parser::ParsedAction = parse_line(input);
 
-        println!("{:?}", parsed.events[0]);    // TODO: use match instead (?)       
+        // Zapisz akcję do pliku
+        if let Err(e) = writeln!(file, "{} vs {}: {}", home_team, away_team, input) {
+            eprintln!("Błąd podczas zapisywania do pliku: {}", e);
+        }
+        
+        println!("Akcja zapisana: {}", input);       
     }
 }
