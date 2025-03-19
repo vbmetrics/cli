@@ -22,7 +22,7 @@ enum Commands {
 #[tokio::main]
 async fn main() -> Result<(), sqlx::Error> {
     let database_url: &str = "postgres://vbm:password@localhost:5432/vbmetrics-test";
-    let pool = PgPoolOptions::new()
+    let pool: sqlx::Pool<sqlx::Postgres> = PgPoolOptions::new()
         .max_connections(5)
         .connect(&database_url)
         .await?;
