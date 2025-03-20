@@ -71,7 +71,6 @@ pub async fn choose_team_from_db(pool: &PgPool, prompt: &str) -> Option<String> 
     }
 }
 
-
 pub fn match_loop(home_team: &str, away_team: &str) {
     println!("Wpisz akcje lub 'exit' aby zakończyć mecz.");
 
