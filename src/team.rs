@@ -34,10 +34,12 @@ impl Team {
 
     pub fn change_player(&mut self, off_player_id: i32, on_player_id: i32) {
         // change players
+        // find players, add to changed_players, --changes, switch them on the court vec
 
     }
 
     pub fn rotate(&mut self) {
         // moves players on the court counter clockwise
+        // change players' positions
     }
 }
